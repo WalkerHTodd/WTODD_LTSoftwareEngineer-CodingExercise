@@ -1,88 +1,93 @@
 from typing import Dict, List, Tuple
-from collections import defaultdict
 
-# Tool class: holds an ID and a dictionary of its metrics (speed, accuracy, cost)
 class Tool:
     def __init__(self, id: str, metrics: Dict[str, int]):
         self.id = id
         self.metrics = metrics
-        self.assigned: List[Tuple[str, int]] = []  # list of (sample_id, fit_score)
+        self.assigned: List[Tuple[str, int]] = []
 
-# Sample class: holds an ID, its testing needs, and tool preferences
 class Sample:
     def __init__(self, id: str, needs: Dict[str, int], preferences: List[str]):
         self.id = id
         self.needs = needs
         self.preferences = preferences
 
-# Parse input file and build tools and samples from the data
 def parse_input(filepath: str) -> Tuple[Dict[str, Tool], List[Sample]]:
-    tools = {}      # holds all tools indexed by ID
-    samples = []    # list of Sample objects
+    tools = {}
+    samples = []
 
     with open(filepath, 'r') as file:
         for line in file:
             parts = line.strip().split()
+            if not parts:
+                continue
 
-            # Tool line: starts with T, then tool ID, then metrics
             if parts[0] == 'T':
                 tool_id = parts[1]
-                metrics = {
-                    kv.split(':')[0]: int(kv.split(':')[1]) for kv in parts[2:]
-                }  # turn S:5 A:6 C:7 into a dict
+                metrics = {kv.split(':')[0]: int(kv.split(':')[1]) for kv in parts[2:]}
                 tools[tool_id] = Tool(tool_id, metrics)
 
-            # Sample line: starts with M, then sample ID, then needs + preferences
             elif parts[0] == 'M':
                 sample_id = parts[1]
                 needs = {}
                 idx = 2
-                # keep pulling metric:value until we hit preferences (which don't have ':')
                 while ':' in parts[idx]:
-                    key, val = parts[idx].split(':')
-                    needs[key] = int(val)
+                    k, v = parts[idx].split(':')
+                    needs[k] = int(v)
                     idx += 1
-                # Preferences are listed like T2>T1>T3 — split them into a list
                 preferences = parts[idx].split('>')
                 samples.append(Sample(sample_id, needs, preferences))
 
     return tools, samples
 
-# A sample’s fit for a tool is calculated by the dot product of the tool’s metrics and the
-# sample’s need for those metrics.
 def calc_fit(tool: Tool, sample: Sample) -> int:
     return sum(tool.metrics[k] * sample.needs[k] for k in ['S', 'A', 'C'])
 
-# Assign each sample to the first preferred tool that has space
 def assign_samples(tools: Dict[str, Tool], samples: List[Sample]):
-    tool_list = list(tools.keys())
-    max_samples = len(samples) // len(tool_list)
-    assigned = defaultdict(list)
+    max_per_tool = len(samples) // len(tools)
+    assigned = {tid: [] for tid in tools}
+    assigned_samples = set()
 
-    for s in samples:
-        for preferred_tool in s.preferences:
-            if len(assigned[preferred_tool]) < max_samples:
-                score = calc_fit(tools[preferred_tool], s)
-                assigned[preferred_tool].append((s.id, score))
-                break  # only assign once
+    while len(assigned_samples) < len(samples):
+        candidates = []
 
-    # Save assignments to each Tool object
-    for tid in tool_list:
-        tools[tid].assigned = assigned[tid]
+        for sample in samples:
+            if sample.id in assigned_samples:
+                continue
 
-# Write out the tool assignments to a file
+            for pref_rank, tool_id in enumerate(sample.preferences):
+                if len(assigned[tool_id]) >= max_per_tool:
+                    continue
+
+                score = calc_fit(tools[tool_id], sample)
+                # Lower preference rank is better — we sort by (-score, pref_rank)
+                candidates.append((score, -pref_rank, sample, tool_id))
+                break  # only consider top-most preferred tool with room
+
+        # Pick best candidate
+        if not candidates:
+            break
+
+        candidates.sort(reverse=True, key=lambda x: (x[0], x[1]))  # max score, then best pref
+        best_score, _, sample, tool_id = candidates[0]
+        assigned[tool_id].append((sample.id, best_score))
+        assigned_samples.add(sample.id)
+        print(f"✅ Assigned {sample.id} (score {best_score}) to {tool_id}")
+
+    for tid in tools:
+        tools[tid].assigned = sorted(assigned[tid], key=lambda x: -x[1])
+
+
+
+
 def write_output(tools: Dict[str, Tool], filepath: str):
-    with open(filepath, 'w') as f:
-        for tid in sorted(tools.keys()):
-            line = f"{tid}: " + ' '.join(f"{sid}({fit})" for sid, fit in tools[tid].assigned)
-            f.write(line + '\n')
+    with open(filepath, "w") as f:
+        for tool_id in sorted(tools.keys()):
+            line = f"{tool_id}: " + " ".join(f"{sid}({score})" for sid, score in tools[tool_id].assigned)
+            f.write(line + "\n")
 
-# Run everything
 if __name__ == '__main__':
-    input_path = 'sample_input.txt'
-    output_path = 'tool_assignment_output.txt'
-
-    tools, samples = parse_input(input_path)
+    tools, samples = parse_input('sample_input.txt')
     assign_samples(tools, samples)
-    write_output(tools, output_path)
-    print(f"Output written to {output_path}")
+    write_output(tools, 'tool_assignment_output.txt')
+    print("✅ Output written to tool_assignment_output.txt")
