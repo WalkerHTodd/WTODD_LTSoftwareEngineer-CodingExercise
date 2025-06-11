@@ -45,7 +45,7 @@ def calc_fit(tool: Tool, sample: Sample) -> int:
 
 def assign_samples(tools: Dict[str, Tool], samples: List[Sample]):
     max_per_tool = len(samples) // len(tools)
-    assigned = {tid: [] for tid in tools}
+    assigned = {tool_id: [] for tool_id in tools.keys()}
     assigned_samples = set()
 
     while len(assigned_samples) < len(samples):
