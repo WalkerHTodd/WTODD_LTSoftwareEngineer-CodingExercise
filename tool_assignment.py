@@ -17,14 +17,20 @@ def parse_input(filepath: str) -> Tuple[Dict[str, Tool], List[Sample]]:
     samples = []
 
     with open(filepath, 'r') as file:
+        # Explore the file line by line
         for line in file:
-            parts = line.strip().split()
-            if not parts:
-                continue
+            line = line.strip()
+            if not line:
+                continue  # skip empty lines
+
+            parts = line.split()
 
             if parts[0] == 'T':
                 tool_id = parts[1]
-                metrics = {kv.split(':')[0]: int(kv.split(':')[1]) for kv in parts[2:]}
+                metrics = {}
+                for part in parts[2:]:
+                    key, value = part.split(':')
+                    metrics[key] = int(value)
                 tools[tool_id] = Tool(tool_id, metrics)
 
             elif parts[0] == 'M':
@@ -32,22 +38,37 @@ def parse_input(filepath: str) -> Tuple[Dict[str, Tool], List[Sample]]:
                 needs = {}
                 idx = 2
                 while ':' in parts[idx]:
-                    k, v = parts[idx].split(':')
-                    needs[k] = int(v)
+                    key, value = parts[idx].split(':')
+                    needs[key] = int(value)
                     idx += 1
                 preferences = parts[idx].split('>')
                 samples.append(Sample(sample_id, needs, preferences))
 
     return tools, samples
 
+
+# Dot Product Calculation (In directions)
 def calc_fit(tool: Tool, sample: Sample) -> int:
     return sum(tool.metrics[k] * sample.needs[k] for k in ['S', 'A', 'C'])
 
+# Original Version – Rank-Based Passes
+# Per Tool, Per Rank, One Sample per Loop
+# Each tool would pick one sample per preference rank pass.
+
+# Final Version – Global Loop, Preference-Aware
+# Key Fix:
+# No more rank-based passes.
+# Loop until all samples are assigned.
+# Each iteration picks the globally best (fit score + preference-aware) assignment.
 def assign_samples(tools: Dict[str, Tool], samples: List[Sample]):
     max_per_tool = len(samples) // len(tools)
-    assigned = {tool_id: [] for tool_id in tools.keys()}
+    assigned = {}
+    for tool_id in tools:
+        assigned[tool_id] = []
+
     assigned_samples = set()
 
+    # Keep assigning until all samples are assigned or no candidates left
     while len(assigned_samples) < len(samples):
         candidates = []
 
@@ -67,27 +88,31 @@ def assign_samples(tools: Dict[str, Tool], samples: List[Sample]):
         # Pick best candidate
         if not candidates:
             break
-
+        
+        # Got Help with using ai to write the lambda function
+        # Sort candidates by score (descending) and preference rank (ascending)
+        # We want the highest score and the lowest preference rank (best preference)
         candidates.sort(reverse=True, key=lambda x: (x[0], x[1]))  # max score, then best pref
         best_score, _, sample, tool_id = candidates[0]
         assigned[tool_id].append((sample.id, best_score))
         assigned_samples.add(sample.id)
-        print(f"✅ Assigned {sample.id} (score {best_score}) to {tool_id}")
+        print(f"Assigned {sample.id} (score {best_score}) to {tool_id}")
 
     for tid in tools:
         tools[tid].assigned = sorted(assigned[tid], key=lambda x: -x[1])
 
 
-
-
 def write_output(tools: Dict[str, Tool], filepath: str):
-    with open(filepath, "w") as f:
-        for tool_id in sorted(tools.keys()):
-            line = f"{tool_id}: " + " ".join(f"{sid}({score})" for sid, score in tools[tool_id].assigned)
-            f.write(line + "\n")
+    with open(filepath, "w") as file:
+        for tool_id in sorted(tools):
+            file.write(tool_id + ": ")
+            for sample_id, score in tools[tool_id].assigned:
+                file.write(f"{sample_id}({score}) ")
+            file.write("\n")
+
 
 if __name__ == '__main__':
     tools, samples = parse_input('sample_input.txt')
     assign_samples(tools, samples)
     write_output(tools, 'tool_assignment_output.txt')
-    print("✅ Output written to tool_assignment_output.txt")
+    print("Output written to tool_assignment_output.txt")
