@@ -1,5 +1,8 @@
 from typing import Dict, List, Tuple
 
+# Your task is to write code to assign material samples to tools such that, once they have
+# been scheduled on a tool, no sample could be moved to a different tool that a customer
+# would prefer more and be a better fit for it than any sample already scheduled on it.
 class Tool:
     def __init__(self, id: str, metrics: Dict[str, int]):
         self.id = id
@@ -49,7 +52,12 @@ def parse_input(filepath: str) -> Tuple[Dict[str, Tool], List[Sample]]:
 
 # Dot Product Calculation (In directions)
 def calc_fit(tool: Tool, sample: Sample) -> int:
-    return sum(tool.metrics[k] * sample.needs[k] for k in ['S', 'A', 'C'])
+    s_score = tool.metrics['S'] * sample.needs['S']
+    a_score = tool.metrics['A'] * sample.needs['A']
+    c_score = tool.metrics['C'] * sample.needs['C']
+    
+    total_score = s_score + a_score + c_score
+    return total_score
 
 # Original Version – Rank-Based Passes
 # Per Tool, Per Rank, One Sample per Loop
