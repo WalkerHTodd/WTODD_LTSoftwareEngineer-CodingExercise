@@ -69,25 +69,29 @@ def calc_fit(tool: Tool, sample: Sample) -> int:
 def assign_samples(tools: Dict[str, Tool], samples: List[Sample]):
     max_per_tool = len(samples) // len(tools)
     assigned = {}
+
+    # dictionary that tracks which samples are assigned to each tool.
     for tool_id in tools:
         assigned[tool_id] = []
 
     assigned_samples = set()
 
-    # Keep assigning until all samples are assigned or no candidates left
+    # Keep looping until all samples have been assigned.
     while len(assigned_samples) < len(samples):
         candidates = []
-
+        
+        # Find all possible candidates for this round:
         for sample in samples:
             if sample.id in assigned_samples:
                 continue
-
+            # For each unassigned sample:
+            # We go through their tool preference list in order, and only consider the top-most tool that still has space.
             for pref_rank, tool_id in enumerate(sample.preferences):
                 if len(assigned[tool_id]) >= max_per_tool:
                     continue
 
                 score = calc_fit(tools[tool_id], sample)
-                # Lower preference rank is better — we sort by (-score, pref_rank)
+                # negate pref_rank so that lower preference values sort higher (0 is best).
                 candidates.append((score, -pref_rank, sample, tool_id))
                 break  # only consider top-most preferred tool with room
 
@@ -99,7 +103,9 @@ def assign_samples(tools: Dict[str, Tool], samples: List[Sample]):
         # Sort candidates by score (descending) and preference rank (ascending)
         # We want the highest score and the lowest preference rank (best preference)
         candidates.sort(reverse=True, key=lambda x: (x[0], x[1]))  # max score, then best pref
+        # take the top result
         best_score, _, sample, tool_id = candidates[0]
+        # assign it to the tool
         assigned[tool_id].append((sample.id, best_score))
         assigned_samples.add(sample.id)
         print(f"Assigned {sample.id} (score {best_score}) to {tool_id}")
