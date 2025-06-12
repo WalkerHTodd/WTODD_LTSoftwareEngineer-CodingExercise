@@ -23,8 +23,6 @@ def parse_input(filepath: str) -> Tuple[Dict[str, Tool], List[Sample]]:
         # Explore the file line by line
         for line in file:
             line = line.strip()
-            if not line:
-                continue  # skip empty lines
 
             parts = line.split()
 
