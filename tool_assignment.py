@@ -27,22 +27,27 @@ def parse_input(filepath: str) -> Tuple[Dict[str, Tool], List[Sample]]:
             parts = line.split()
 
             if parts[0] == 'T':
+                # print("Parsing Tool:", parts)
                 tool_id = parts[1]
                 metrics = {}
                 for part in parts[2:]:
                     key, value = part.split(':')
+                    # print (f"Metric Key: {key}, Value: {value}")
                     metrics[key] = int(value)
                 tools[tool_id] = Tool(tool_id, metrics)
 
             elif parts[0] == 'M':
+                # print("Parsing Sample:", parts)
                 sample_id = parts[1]
                 needs = {}
                 idx = 2
                 while ':' in parts[idx]:
                     key, value = parts[idx].split(':')
+                    # print(f"Need Key: {key}, Value: {value}")
                     needs[key] = int(value)
                     idx += 1
                 preferences = parts[idx].split('>')
+                # print(f"Sample ID: {sample_id}, Needs: {needs}, Preferences: {preferences}")
                 samples.append(Sample(sample_id, needs, preferences))
 
     return tools, samples
@@ -105,7 +110,7 @@ def assign_samples(tools: Dict[str, Tool], samples: List[Sample]):
         candidates.sort(reverse=True, key=lambda x: (x[0], x[1]))  # max score, then best pref
         # take the top result
         best_score, _, sample, tool_id = candidates[0]
-        # assign it to the tool
+        # assign it to the
         assigned[tool_id].append((sample.id, best_score))
         assigned_samples.add(sample.id)
         print(f"Assigned {sample.id} (score {best_score}) to {tool_id}")
